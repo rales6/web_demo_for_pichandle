@@ -1247,6 +1247,8 @@ button:disabled {
 .stage-viewport {
   overflow: hidden;
   min-width: 0;
+  height: 100%;
+  padding-top: 88px;
 }
 
 .stage-track {
@@ -1258,12 +1260,13 @@ button:disabled {
 
 .stage-slide {
   display: grid;
+  align-items: center;
   min-width: 100%;
   height: 100%;
 }
 
 .stage-slide .canvas-wrap {
-  min-height: calc(100vh - 264px);
+  min-height: min(620px, calc(100vh - 320px));
   width: 100%;
   margin: 0 auto;
   padding-right: 350px;
@@ -1280,7 +1283,7 @@ button:disabled {
 
 .recommend-panel {
   position: absolute;
-  top: 92px;
+  top: 108px;
   right: 18px;
   bottom: 14px;
   z-index: 4;
@@ -1870,6 +1873,10 @@ canvas {
     padding-right: 260px;
   }
 
+  .stage-viewport {
+    padding-top: 82px;
+  }
+
   .recommend-panel {
     width: 230px;
   }
@@ -1971,6 +1978,10 @@ canvas {
 
   .stage-slide .canvas-wrap {
     padding-right: 12px;
+  }
+
+  .stage-viewport {
+    padding-top: 128px;
   }
 
   .stage-overlay {

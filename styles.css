@@ -18,6 +18,7 @@
   --glow: rgba(30, 159, 184, 0.28);
   --glass: rgba(10, 20, 34, 0.66);
   --glass-strong: rgba(12, 24, 39, 0.72);
+  --page-scale: 0.9;
 }
 
 * {
@@ -27,6 +28,8 @@
 body {
   margin: 0;
   min-height: 100vh;
+  overflow-x: hidden;
+  zoom: var(--page-scale);
   background: #08111d;
   color: var(--ink);
   font-family:

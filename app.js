@@ -245,10 +245,20 @@ async function useExampleForeground(src) {
 
 function drawImageToCanvas(canvas, image) {
   setCanvasSize(canvas, image.naturalWidth, image.naturalHeight);
+  if (canvas === els.subjectCanvas) {
+    els.subjectCanvasWrap.classList.add("has-subject-image");
+    els.subjectCanvasWrap.style.setProperty("--subject-canvas-height", `${canvas.height}px`);
+  }
   const ctx = canvasContext(canvas);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
   if (canvas === els.subjectCanvas) applySubjectView();
+}
+
+function repaintImageInCanvas(canvas, image) {
+  const ctx = canvasContext(canvas);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 }
 
 function drawCanvasToCanvas(target, source) {
@@ -380,13 +390,26 @@ function canvasPoint(event, canvas) {
   };
 }
 
+function rectToLocalMetrics(rect, parent) {
+  const parentRect = parent.getBoundingClientRect();
+  const zoomX = parent.offsetWidth ? parentRect.width / parent.offsetWidth : 1;
+  const zoomY = parent.offsetHeight ? parentRect.height / parent.offsetHeight : 1;
+  return {
+    left: (rect.left - parentRect.left) / zoomX,
+    top: (rect.top - parentRect.top) / zoomY,
+    width: rect.width / zoomX,
+    height: rect.height / zoomY,
+  };
+}
+
 function positionSelectionBox(selection, rect) {
-  const wrapRect = els.subjectCanvas.parentElement.getBoundingClientRect();
-  const scaleX = rect.width / els.subjectCanvas.width;
-  const scaleY = rect.height / els.subjectCanvas.height;
+  const wrap = els.subjectCanvas.parentElement;
+  const local = rectToLocalMetrics(rect, wrap);
+  const scaleX = local.width / els.subjectCanvas.width;
+  const scaleY = local.height / els.subjectCanvas.height;
   els.selectionBox.hidden = false;
-  els.selectionBox.style.left = `${rect.left - wrapRect.left + selection.x * scaleX}px`;
-  els.selectionBox.style.top = `${rect.top - wrapRect.top + selection.y * scaleY}px`;
+  els.selectionBox.style.left = `${local.left + selection.x * scaleX}px`;
+  els.selectionBox.style.top = `${local.top + selection.y * scaleY}px`;
   els.selectionBox.style.width = `${selection.w * scaleX}px`;
   els.selectionBox.style.height = `${selection.h * scaleY}px`;
 }
@@ -436,6 +459,7 @@ function updateSubjectViewResetButton() {
   const shouldShow = state.subjectImage && state.activeStage === 0 && subjectViewChanged();
   els.resetSubjectViewButton.hidden = !shouldShow;
   els.subjectCanvasWrap.classList.toggle("has-view-reset", shouldShow);
+  updateRecommendationVisibilityOnly();
 }
 
 function updateCutoutViewResetButton() {
@@ -443,6 +467,17 @@ function updateCutoutViewResetButton() {
   const shouldShow = state.foregroundCanvas && state.activeStage === 1 && cutoutViewChanged();
   els.resetCutoutViewButton.hidden = !shouldShow;
   els.cutoutCanvas.parentElement.classList.toggle("has-view-reset", shouldShow);
+  updateRecommendationVisibilityOnly();
+}
+
+function updateRecommendationVisibilityOnly() {
+  if (!els.recommendPanel) return;
+  const shouldHide =
+    state.activeStage === 3 ||
+    (state.activeStage === 0 && subjectViewChanged()) ||
+    (state.activeStage === 1 && cutoutViewChanged());
+  els.recommendPanel.hidden = shouldHide;
+  els.composerApp?.classList.toggle("recommendations-collapsed", shouldHide);
 }
 
 function resetSubjectView() {
@@ -505,7 +540,6 @@ function panCutoutView(dx, dy) {
 
 function wireSelection() {
   let start = null;
-  let currentRect = null;
   let panStart = null;
   let cutoutPanStart = null;
 
@@ -523,10 +557,10 @@ function wireSelection() {
       return;
     }
     setProcessing(false);
-    drawImageToCanvas(els.subjectCanvas, state.subjectImage);
+    repaintImageInCanvas(els.subjectCanvas, state.subjectImage);
     els.selectionBox.hidden = true;
+    els.subjectCanvasWrap.classList.add("is-selecting");
     start = canvasPoint(event, els.subjectCanvas);
-    currentRect = start.rect;
     els.subjectCanvas.setPointerCapture(event.pointerId);
   });
 
@@ -540,7 +574,7 @@ function wireSelection() {
     }
     if (!start) return;
     const end = canvasPoint(event, els.subjectCanvas);
-    positionSelectionBox(normalizeSelection(start, end), currentRect);
+    positionSelectionBox(normalizeSelection(start, end), els.subjectCanvas.getBoundingClientRect());
   });
 
   els.subjectCanvas.addEventListener("pointerup", async (event) => {
@@ -552,6 +586,7 @@ function wireSelection() {
     const end = canvasPoint(event, els.subjectCanvas);
     const selection = normalizeSelection(start, end);
     start = null;
+    els.subjectCanvasWrap.classList.remove("is-selecting");
     if (selection.w < 12 || selection.h < 12) {
       els.selectionBox.hidden = true;
       return;
@@ -592,6 +627,11 @@ function wireSelection() {
       updateButtons();
     }
   });
+  els.subjectCanvas.addEventListener("pointercancel", () => {
+    start = null;
+    panStart = null;
+    els.subjectCanvasWrap.classList.remove("is-selecting");
+  });
 
   els.subjectCanvas.addEventListener("auxclick", (event) => {
     if (event.button === 1) event.preventDefault();
@@ -611,6 +651,7 @@ function wireSelection() {
   els.cutoutCanvas.addEventListener("pointerdown", (event) => {
     if (event.button !== 1 || !state.foregroundCanvas || state.activeStage !== 1) return;
     event.preventDefault();
+    event.stopPropagation();
     cutoutPanStart = {
       pointerId: event.pointerId,
       x: event.clientX,
@@ -623,12 +664,24 @@ function wireSelection() {
   els.cutoutCanvas.addEventListener("pointermove", (event) => {
     if (!cutoutPanStart) return;
     event.preventDefault();
+    event.stopPropagation();
     state.cutoutView.x = cutoutPanStart.view.x + event.clientX - cutoutPanStart.x;
     state.cutoutView.y = cutoutPanStart.view.y + event.clientY - cutoutPanStart.y;
     applyCutoutView();
   });
 
-  els.cutoutCanvas.addEventListener("pointerup", () => {
+  els.cutoutCanvas.addEventListener("pointerup", (event) => {
+    if (cutoutPanStart) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    cutoutPanStart = null;
+  });
+  els.cutoutCanvas.addEventListener("pointercancel", (event) => {
+    if (cutoutPanStart) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     cutoutPanStart = null;
   });
 
@@ -1449,13 +1502,13 @@ function updateResultEditBox() {
     return;
   }
   const canvasRect = els.resultCanvas.getBoundingClientRect();
-  const wrapRect = els.resultCanvas.parentElement.getBoundingClientRect();
-  const scaleX = canvasRect.width / els.resultCanvas.width;
-  const scaleY = canvasRect.height / els.resultCanvas.height;
+  const local = rectToLocalMetrics(canvasRect, els.resultCanvas.parentElement);
+  const scaleX = local.width / els.resultCanvas.width;
+  const scaleY = local.height / els.resultCanvas.height;
   const { x, y, w, h } = state.resultEdit;
   els.resultEditBox.hidden = false;
-  els.resultEditBox.style.left = `${canvasRect.left - wrapRect.left + x * scaleX}px`;
-  els.resultEditBox.style.top = `${canvasRect.top - wrapRect.top + y * scaleY}px`;
+  els.resultEditBox.style.left = `${local.left + x * scaleX}px`;
+  els.resultEditBox.style.top = `${local.top + y * scaleY}px`;
   els.resultEditBox.style.width = `${w * scaleX}px`;
   els.resultEditBox.style.height = `${h * scaleY}px`;
 }
@@ -1723,8 +1776,15 @@ function createRecommendCard(item, kind) {
 function updateRecommendations() {
   const isBackgroundStage = state.activeStage === 2;
   const isResultStage = state.activeStage === 3;
-  els.recommendPanel.hidden = isResultStage;
-  if (isResultStage) return;
+  const isEditingSubjectView = state.activeStage === 0 && subjectViewChanged();
+  const isEditingCutoutView = state.activeStage === 1 && cutoutViewChanged();
+  const shouldHide =
+    isResultStage ||
+    isEditingSubjectView ||
+    isEditingCutoutView;
+  els.recommendPanel.hidden = shouldHide;
+  els.composerApp?.classList.toggle("recommendations-collapsed", shouldHide);
+  if (shouldHide) return;
 
   const kind = isBackgroundStage ? "background" : "foreground";
   const foregroundSource = HAS_LOCAL_FOREGROUND_RECOMMENDATIONS
@@ -1806,6 +1866,7 @@ function wireStageGesture() {
 
   els.stageViewport.addEventListener("pointerdown", (event) => {
     if (state.activeStage === 0 && event.target === els.subjectCanvas) return;
+    if (state.activeStage === 1 && event.target === els.cutoutCanvas) return;
     if (state.activeStage === 3 && (event.target === els.resultCanvas || els.resultEditBox.contains(event.target))) return;
     startX = event.clientX;
     startY = event.clientY;
@@ -1842,6 +1903,10 @@ function wireStageGesture() {
 }
 
 function initEmptyCanvas(canvas, text = "双击添加图片") {
+  if (canvas === els.subjectCanvas) {
+    els.subjectCanvasWrap.classList.remove("has-subject-image");
+    els.subjectCanvasWrap.style.removeProperty("--subject-canvas-height");
+  }
   canvas.width = 800;
   canvas.height = 520;
   const ctx = canvasContext(canvas);

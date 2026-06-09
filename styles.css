@@ -1248,7 +1248,6 @@ button:disabled {
   overflow: hidden;
   min-width: 0;
   height: 100%;
-  padding-top: 88px;
 }
 
 .stage-track {
@@ -1260,16 +1259,22 @@ button:disabled {
 
 .stage-slide {
   display: grid;
-  align-items: center;
+  align-items: stretch;
   min-width: 100%;
   height: 100%;
 }
 
 .stage-slide .canvas-wrap {
-  min-height: min(620px, calc(100vh - 320px));
+  height: 100%;
+  min-height: 0;
   width: 100%;
   margin: 0 auto;
   padding-right: 350px;
+  padding-top: 92px;
+}
+
+.composer-app.recommendations-collapsed .stage-slide .canvas-wrap {
+  padding-right: 18px;
 }
 
 .stage-slide:nth-child(3) .canvas-wrap,
@@ -1724,6 +1729,13 @@ canvas {
   transform: translateY(-2px);
 }
 
+.subject-wrap.is-selecting canvas,
+.subject-wrap.is-selecting:hover canvas {
+  animation: none;
+  transform: none;
+  transition: none;
+}
+
 .result-wrap canvas {
   box-shadow:
     0 24px 52px rgba(0, 0, 0, 0.38),
@@ -1873,10 +1885,6 @@ canvas {
     padding-right: 260px;
   }
 
-  .stage-viewport {
-    padding-top: 82px;
-  }
-
   .recommend-panel {
     width: 230px;
   }
@@ -1978,10 +1986,6 @@ canvas {
 
   .stage-slide .canvas-wrap {
     padding-right: 12px;
-  }
-
-  .stage-viewport {
-    padding-top: 128px;
   }
 
   .stage-overlay {

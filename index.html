@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>智能物体融合</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="ambient-bg" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+    <nav class="site-tabs" aria-label="主导航">
+      <button class="site-tab active" id="homeTab" type="button">首页</button>
+      <button class="site-tab" id="composeTab" type="button">图片合成</button>
+      <button class="site-tab" id="tutorialTab" type="button">教程</button>
+    </nav>
+    <main class="shell">
+      <section class="landing" id="landing">
+        <div class="landing-copy">
+          <p class="eyebrow">OPA Image Composer</p>
+          <h1>智能物体融合</h1>
+          <p class="landing-subtitle">先从随机背景灵感墙里挑一个场景，再上传主体完成合成。</p>
+          <button class="start-button" id="startButton" type="button" aria-label="开始合成">
+            <span class="start-button-text">开始合成</span>
+            <span class="start-button-arrows" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </span>
+          </button>
+        </div>
+
+        <div class="example-showcase" aria-label="背景示例图库">
+          <div class="example-track" id="exampleTrackA"></div>
+          <div class="example-track reverse" id="exampleTrackB"></div>
+          <div class="example-track" id="exampleTrackC"></div>
+        </div>
+      </section>
+
+      <section class="composer-app" id="composerApp" aria-label="用户合成界面">
+        <section class="workspace" aria-label="图片融合工作区">
+          <section class="stage-grid carousel-workbench">
+            <article class="panel stage-panel">
+              <div class="stage-overlay">
+                <div>
+                  <h2 id="stageTitle">前景原图</h2>
+                  <span id="stageHint">双击画布添加前景，添加后拖拽框选主体</span>
+                </div>
+                <div class="stage-actions">
+                  <button class="secondary icon-restore" id="prevStageButton" type="button">返回上一步</button>
+                  <button class="secondary icon-image" id="nextStageButton" type="button">查看下一步</button>
+                  <div class="stage-counter" id="stageCounter">1 / 4</div>
+                </div>
+              </div>
+              <div class="status-pill composer-status" id="serviceStatus">准备上传</div>
+              <div class="adjust-widget" id="adjustWidget">
+                <button class="adjust-orb" id="adjustFloatButton" type="button" aria-expanded="false">
+                  <span class="adjust-orb-dot"></span>
+                  <span>调整</span>
+                </button>
+                <section class="adjust-card" id="adjustCard" hidden>
+                  <div class="adjust-card-head">
+                    <strong>图像调整</strong>
+                    <span>拖动小窗可移动</span>
+                  </div>
+                  <div class="adjust-panel" id="cutoutAdjustPanel">
+                    <label class="adjust-control">
+                      <span>透明度</span>
+                      <input id="cutoutOpacitySlider" type="range" min="40" max="140" value="100" />
+                    </label>
+                    <label class="adjust-control">
+                      <span>冷暖色调</span>
+                      <input id="cutoutToneSlider" type="range" min="-100" max="100" value="0" />
+                    </label>
+                    <label class="adjust-control">
+                      <span>边界处理</span>
+                      <input id="cutoutSharpenSlider" type="range" min="-100" max="100" value="0" />
+                    </label>
+                    <div class="adjust-row">
+                      <button class="adjust-mini" id="eraserToggleButton" type="button">橡皮擦</button>
+                      <label class="adjust-control compact">
+                        <span>大小</span>
+                        <input id="eraserSizeSlider" type="range" min="8" max="80" value="28" />
+                      </label>
+                    </div>
+                    <div class="adjust-actions">
+                      <button class="adjust-reset" id="cutoutUndoButton" type="button" disabled>撤销上一步</button>
+                      <button class="adjust-reset" id="cutoutResetButton" type="button">恢复抠图</button>
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <aside class="recommend-panel" id="recommendPanel" aria-label="图片推荐">
+                <div class="recommend-title" id="recommendTitle">前景推荐</div>
+                <div class="recommend-viewport">
+                  <div class="recommend-track" id="recommendTrack"></div>
+                </div>
+              </aside>
+
+              <div class="stage-viewport" id="stageViewport">
+                <div class="stage-track" id="stageTrack">
+                  <section class="stage-slide" data-stage-title="前景原图" data-stage-hint="双击画布添加前景，添加后拖拽框选主体">
+                    <div class="canvas-wrap subject-wrap upload-surface" id="subjectCanvasWrap" tabindex="0">
+                      <span class="upload-hint">双击添加前景，添加后拖拽框选</span>
+                      <button class="canvas-reset-button icon-restore" id="resetSubjectViewButton" type="button" hidden>恢复视图</button>
+                      <canvas id="subjectCanvas"></canvas>
+                      <div class="scan-line" id="cutoutScanLine" aria-hidden="true"></div>
+                      <div id="selectionBox" class="selection-box" hidden></div>
+                    </div>
+                  </section>
+
+                  <section class="stage-slide" data-stage-title="抠图预览" data-stage-hint="这里查看自动抠图结果，可下载透明 PNG 或返回原图重选">
+                    <div class="canvas-wrap cutout-wrap">
+                      <button class="canvas-reset-button icon-restore" id="resetCutoutViewButton" type="button" hidden>恢复视图</button>
+                      <canvas id="cutoutCanvas"></canvas>
+                    </div>
+                  </section>
+
+                  <section class="stage-slide" data-stage-title="背景图" data-stage-hint="双击画布添加背景，或从右侧推荐中选择">
+                    <div class="canvas-wrap upload-surface" id="backgroundCanvasWrap" tabindex="0">
+                      <span class="upload-hint">双击添加背景</span>
+                      <canvas id="backgroundCanvas"></canvas>
+                    </div>
+                  </section>
+
+                  <section class="stage-slide" data-stage-title="合成结果" data-stage-hint="生成后的合成图会展示在这里，并可下载成品">
+                    <div class="canvas-wrap result-wrap">
+                      <canvas id="resultCanvas"></canvas>
+                      <div class="result-edit-box" id="resultEditBox" hidden>
+                        <span class="resize-handle nw" data-handle="nw"></span>
+                        <span class="resize-handle ne" data-handle="ne"></span>
+                        <span class="resize-handle sw" data-handle="sw"></span>
+                        <span class="resize-handle se" data-handle="se"></span>
+                      </div>
+                      <div class="score-card" id="scoreCard" hidden>
+                        <span>OPA 合理性评分</span>
+                        <strong id="scoreValue">--</strong>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </article>
+
+            <div class="panel quick-bar" aria-label="操作栏">
+              <label class="dropzone compact icon-upload hidden-upload" id="subjectDrop" tabindex="0" aria-hidden="true">
+                <input id="subjectInput" type="file" accept="image/*" />
+                <span>上传前景</span>
+              </label>
+              <label class="dropzone compact icon-image hidden-upload" id="backgroundDrop" tabindex="0" aria-hidden="true">
+                <input id="backgroundInput" type="file" accept="image/*" />
+                <span>上传背景</span>
+              </label>
+              <button class="secondary icon-image stage-tool active" data-tool-stage="0" id="viewOriginalButton" type="button">查看原图</button>
+              <button class="secondary icon-cutout stage-tool" data-tool-stage="1" id="viewCutoutButton" type="button" disabled>查看抠图</button>
+              <button class="secondary icon-image stage-tool" data-tool-stage="2" id="viewBackgroundButton" type="button" disabled>查看背景</button>
+              <button class="primary icon-magic stage-tool" data-tool-stage="3" id="runButton" type="button" disabled>图像融合</button>
+              <button class="secondary icon-download" id="downloadMenuButton" type="button" disabled>下载</button>
+              <button class="secondary hidden-action" id="cutoutDownloadButton" type="button" disabled>下载抠图</button>
+              <button class="secondary hidden-action" id="restoreSubjectButton" type="button" disabled>返回原图</button>
+              <button class="secondary hidden-action" id="downloadButton" type="button" disabled>下载成品</button>
+            </div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <div class="download-dialog" id="downloadDialog" hidden>
+      <div class="download-card" role="dialog" aria-modal="true" aria-label="选择下载内容">
+        <h2>选择下载内容</h2>
+        <button class="secondary icon-cutout" id="dialogCutoutDownloadButton" type="button">下载抠图</button>
+        <button class="secondary icon-download" id="dialogResultDownloadButton" type="button">下载合成图</button>
+        <button class="secondary" id="dialogCloseButton" type="button">取消</button>
+      </div>
+    </div>
+
+    <script src="assets/example-foregrounds/foreground-data.js"></script>
+    <script src="assets/example-backgrounds/background-data.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

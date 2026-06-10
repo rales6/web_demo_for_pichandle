@@ -1,11 +1,7 @@
 const MODEL_CONFIG = {
-  useRemoteModel: false,
-  endpoint: "https://web-demo-backend-xq1n.onrender.com/api/compose"
-  useRemoteModel: true
+  useRemoteModel: true,
+  endpoint: "https://web-demo-backend-xq1n.onrender.com/api/compose",
   requestTimeoutMs: 30000,
-  useOpaPlacement: true,
-  opaPlacementEndpoint: "http://127.0.0.1:8000/api/predict",
-  opaPlacementTimeoutMs: 300000,
   useBrowserCutoutModel: true,
   cutoutLibraryUrl: "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm",
   repairSmallCutoutHoles: true,

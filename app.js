@@ -2,6 +2,9 @@ const MODEL_CONFIG = {
   useRemoteModel: false,
   endpoint: "http://localhost:8000/api/compose",
   requestTimeoutMs: 30000,
+  useOpaPlacement: true,
+  opaPlacementEndpoint: "http://127.0.0.1:8000/api/predict",
+  opaPlacementTimeoutMs: 300000,
   useBrowserCutoutModel: true,
   cutoutLibraryUrl: "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm",
   repairSmallCutoutHoles: true,
@@ -27,6 +30,7 @@ const state = {
   subjectView: { scale: 1, x: 0, y: 0 },
   cutoutView: { scale: 1, x: 0, y: 0 },
   cutoutAdjust: { opacity: 1, tone: 0, sharpen: 0, eraser: false, eraserSize: 28 },
+  placementAdjust: { scheme: 1, precision: 3, size: 3 },
   cutoutUndoStack: [],
   activeStage: 0,
   isProcessing: false,
@@ -133,7 +137,8 @@ const els = {
   scoreValue: document.querySelector("#scoreValue"),
   adjustWidget: document.querySelector("#adjustWidget"),
   adjustFloatButton: document.querySelector("#adjustFloatButton"),
-  adjustCard: document.querySelector("#adjustCard"),
+  cutoutAdjustCard: document.querySelector("#cutoutAdjustCard"),
+  placementAdjustCard: document.querySelector("#placementAdjustCard"),
   cutoutAdjustPanel: document.querySelector("#cutoutAdjustPanel"),
   cutoutOpacitySlider: document.querySelector("#cutoutOpacitySlider"),
   cutoutToneSlider: document.querySelector("#cutoutToneSlider"),
@@ -142,6 +147,14 @@ const els = {
   eraserSizeSlider: document.querySelector("#eraserSizeSlider"),
   cutoutUndoButton: document.querySelector("#cutoutUndoButton"),
   cutoutResetButton: document.querySelector("#cutoutResetButton"),
+  placementAdjustPanel: document.querySelector("#placementAdjustPanel"),
+  placementSchemeButtons: Array.from(document.querySelectorAll("[data-placement-scheme]")),
+  placementPrecisionSlider: document.querySelector("#placementPrecisionSlider"),
+  placementPrecisionValue: document.querySelector("#placementPrecisionValue"),
+  placementSizeSlider: document.querySelector("#placementSizeSlider"),
+  placementSizeValue: document.querySelector("#placementSizeValue"),
+  placementSearchButton: document.querySelector("#placementSearchButton"),
+  placementStatus: document.querySelector("#placementStatus"),
 };
 
 function canvasContext(canvas) {
@@ -336,6 +349,7 @@ function setProcessing(isProcessing, kind = "") {
   } else {
     els.runButton.textContent = "图像融合";
   }
+  updateAdjustUi();
 }
 
 function waitForMinimumDuration(startTime, minMs) {
@@ -362,6 +376,7 @@ function resetResult() {
 
 function goToStage(index) {
   const next = Math.max(0, Math.min(STAGE_COUNT - 1, index));
+  const previous = state.activeStage;
   state.activeStage = next;
   els.stageTrack.style.transform = `translateX(${-next * 100}%)`;
   const slide = els.stageSlides[next];
@@ -371,9 +386,11 @@ function goToStage(index) {
   document.querySelectorAll(".stage-tool").forEach((button) => {
     button.classList.toggle("active", Number(button.dataset.toolStage) === next);
   });
+  if (previous !== next) closeAdjustCards();
   updateRecommendations();
   updateSubjectViewResetButton();
   updateCutoutViewResetButton();
+  updateAdjustUi();
   updateButtons();
 }
 
@@ -920,6 +937,25 @@ function wireAdjustWidget() {
     applyCutoutAdjustments();
   });
   els.cutoutUndoButton?.addEventListener("click", undoCutoutStep);
+  for (const button of els.placementSchemeButtons) {
+    button.addEventListener("click", () => {
+      if (button.disabled) return;
+      state.placementAdjust.scheme = Number(button.dataset.placementScheme) || 1;
+      updateAdjustUi();
+    });
+  }
+  els.placementPrecisionSlider?.addEventListener("input", () => {
+    state.placementAdjust.precision = Number(els.placementPrecisionSlider.value);
+    updateAdjustUi();
+  });
+  els.placementSizeSlider?.addEventListener("input", () => {
+    state.placementAdjust.size = Number(els.placementSizeSlider.value);
+    updateAdjustUi();
+  });
+  els.placementSearchButton?.addEventListener("click", () => {
+    if (!state.foregroundCanvas || !state.backgroundImage || state.isProcessing) return;
+    els.runButton.click();
+  });
 
   els.cutoutCanvas.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 || !state.cutoutAdjust.eraser || !state.foregroundBaseCanvas) return;
@@ -945,13 +981,32 @@ function wireAdjustWidget() {
 }
 
 function toggleAdjustCard() {
-  const show = els.adjustCard.hidden;
-  els.adjustCard.hidden = !show;
+  const card = getActiveAdjustCard();
+  if (!card) return;
+  const show = card.hidden;
+  closeAdjustCards();
+  card.hidden = !show;
   els.adjustFloatButton.setAttribute("aria-expanded", String(show));
   els.adjustWidget.classList.toggle("open", show);
 }
 
+function getActiveAdjustCard() {
+  if (state.activeStage === 1) return els.cutoutAdjustCard;
+  if (state.activeStage === 3) return els.placementAdjustCard;
+  return null;
+}
+
+function closeAdjustCards() {
+  if (els.cutoutAdjustCard) els.cutoutAdjustCard.hidden = true;
+  if (els.placementAdjustCard) els.placementAdjustCard.hidden = true;
+  els.adjustFloatButton?.setAttribute("aria-expanded", "false");
+  els.adjustWidget?.classList.remove("open");
+}
+
 function updateAdjustUi() {
+  const isResultStage = state.activeStage === 3;
+  const hasAdjustCard = state.activeStage === 1 || isResultStage;
+  if (els.adjustWidget) els.adjustWidget.hidden = !hasAdjustCard;
   if (els.eraserToggleButton) {
     els.eraserToggleButton.classList.toggle("active", state.cutoutAdjust.eraser);
   }
@@ -961,6 +1016,30 @@ function updateAdjustUi() {
   document.body.classList.toggle("eraser-active", state.cutoutAdjust.eraser);
   if (els.cutoutUndoButton) {
     els.cutoutUndoButton.disabled = state.cutoutUndoStack.length === 0;
+  }
+  for (const button of els.placementSchemeButtons) {
+    button.classList.toggle(
+      "active",
+      Number(button.dataset.placementScheme) === state.placementAdjust.scheme,
+    );
+  }
+  if (els.placementPrecisionSlider) {
+    els.placementPrecisionSlider.value = String(state.placementAdjust.precision);
+  }
+  if (els.placementPrecisionValue) {
+    els.placementPrecisionValue.value = String(state.placementAdjust.precision);
+    els.placementPrecisionValue.textContent = String(state.placementAdjust.precision);
+  }
+  if (els.placementSizeSlider) {
+    els.placementSizeSlider.value = String(state.placementAdjust.size);
+  }
+  if (els.placementSizeValue) {
+    els.placementSizeValue.value = String(state.placementAdjust.size);
+    els.placementSizeValue.textContent = String(state.placementAdjust.size);
+  }
+  if (els.placementSearchButton) {
+    els.placementSearchButton.disabled =
+      state.isProcessing || !state.foregroundCanvas || !state.backgroundImage;
   }
 }
 
@@ -1422,6 +1501,73 @@ async function callModelPipeline(payload) {
   return response.json();
 }
 
+async function composeWithOpaPlacement() {
+  if (!window.OPAPlacement?.search) {
+    throw new Error("OPA 放置搜索模块未加载");
+  }
+
+  const result = els.resultCanvas;
+  drawImageToCanvas(result, state.backgroundImage);
+  const foreground = state.foregroundCanvas || makeForegroundCanvas(state.selection);
+  const baseForegroundWidth = inferTargetWidth(
+    result.width,
+    result.height,
+    foreground.width,
+    foreground.height,
+  );
+
+  if (els.placementStatus) {
+    els.placementStatus.textContent = "正在生成候选位置...";
+  }
+  const best = await window.OPAPlacement.search({
+    background: result,
+    foreground,
+    outputWidth: result.width,
+    outputHeight: result.height,
+    baseForegroundWidth,
+    precisionLevel: state.placementAdjust.precision,
+    sizeLevel: state.placementAdjust.size,
+    endpoint: MODEL_CONFIG.opaPlacementEndpoint,
+    timeoutMs: MODEL_CONFIG.opaPlacementTimeoutMs,
+    onProgress(progress) {
+      if (!els.placementStatus) return;
+      if (progress.phase === "health") {
+        els.placementStatus.textContent = "正在检查 OPA 模型服务...";
+      } else if (progress.phase === "render") {
+        els.placementStatus.textContent =
+          `生成候选 ${progress.completed} / ${progress.total}`;
+      } else if (progress.phase === "predict") {
+        els.placementStatus.textContent =
+          `OPA 正在评分 ${progress.total} 个候选位置`;
+      } else if (progress.phase === "done") {
+        els.placementStatus.textContent = "已找到最佳位置";
+      }
+    },
+  });
+
+  state.resultEdit = {
+    fg: foreground,
+    x: best.x,
+    y: best.y,
+    w: best.w,
+    h: best.h,
+    shadowStrength: inferShadowStrength(
+      best,
+      result.width,
+      result.height,
+      best.w,
+      best.h,
+    ),
+    active: false,
+  };
+  await renderEditableResult();
+
+  els.resultHint.textContent =
+    `OPA 已搜索 ${best.searchedSizeCount} 种大小、${best.candidateCount} 个位置组合`;
+  els.scoreValue.textContent = best.score.toFixed(2);
+  els.scoreCard.hidden = false;
+}
+
 async function composeMock() {
   const result = els.resultCanvas;
   drawImageToCanvas(result, state.backgroundImage);
@@ -1589,7 +1735,12 @@ function wireControls() {
     els.serviceStatus.textContent = "生成中";
     setProcessing(true, "fusion");
     try {
-      if (MODEL_CONFIG.useRemoteModel) {
+      if (
+        MODEL_CONFIG.useOpaPlacement &&
+        state.placementAdjust.scheme === 1
+      ) {
+        await composeWithOpaPlacement();
+      } else if (MODEL_CONFIG.useRemoteModel) {
         await composeWithApi();
       } else {
         await composeMock();
@@ -1598,7 +1749,10 @@ function wireControls() {
       advanceStage(3);
     } catch (error) {
       els.resultHint.textContent = `接口不可用：${error.message}`;
-      if (MODEL_CONFIG.useRemoteModel) {
+      if (els.placementStatus) {
+        els.placementStatus.textContent = `OPA 不可用，已切换本地方案：${error.message}`;
+      }
+      if (MODEL_CONFIG.useRemoteModel || MODEL_CONFIG.useOpaPlacement) {
         try {
           await composeMock();
           els.serviceStatus.textContent = "已用本地回显";

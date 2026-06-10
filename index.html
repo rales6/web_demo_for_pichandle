@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>智能物体融合</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="opa-placement.css" />
   </head>
   <body>
     <div class="ambient-bg" aria-hidden="true">
@@ -61,9 +62,9 @@
                   <span class="adjust-orb-dot"></span>
                   <span>调整</span>
                 </button>
-                <section class="adjust-card" id="adjustCard" hidden>
+                <section class="adjust-card" id="cutoutAdjustCard" hidden>
                   <div class="adjust-card-head">
-                    <strong>图像调整</strong>
+                    <strong>抠图调整</strong>
                     <span>拖动小窗可移动</span>
                   </div>
                   <div class="adjust-panel" id="cutoutAdjustPanel">
@@ -90,6 +91,37 @@
                       <button class="adjust-reset" id="cutoutUndoButton" type="button" disabled>撤销上一步</button>
                       <button class="adjust-reset" id="cutoutResetButton" type="button">恢复抠图</button>
                     </div>
+                  </div>
+                </section>
+                <section class="adjust-card" id="placementAdjustCard" hidden>
+                  <div class="adjust-card-head">
+                    <strong>合成放置</strong>
+                    <span>拖动小窗可移动</span>
+                  </div>
+                  <div class="adjust-panel placement-adjust-panel" id="placementAdjustPanel">
+                    <div class="placement-schemes" role="radiogroup" aria-label="放置方案">
+                      <button class="placement-scheme active" data-placement-scheme="1" type="button">方案一</button>
+                      <button class="placement-scheme" data-placement-scheme="2" type="button" disabled>方案二</button>
+                      <button class="placement-scheme" data-placement-scheme="3" type="button" disabled>方案三</button>
+                    </div>
+                    <label class="adjust-control">
+                      <span class="placement-control-head">
+                        <span>搜索精度</span>
+                        <output class="placement-level" id="placementPrecisionValue">3</output>
+                      </span>
+                      <input id="placementPrecisionSlider" type="range" min="1" max="5" step="1" value="3" />
+                    </label>
+                    <label class="adjust-control">
+                      <span class="placement-control-head">
+                        <span>大小检索范围</span>
+                        <output class="placement-level" id="placementSizeValue">3</output>
+                      </span>
+                      <input id="placementSizeSlider" type="range" min="1" max="5" step="1" value="3" />
+                    </label>
+                    <button class="placement-search-button" id="placementSearchButton" type="button">
+                      搜索最佳位置
+                    </button>
+                    <div class="placement-status" id="placementStatus">方案一：OPA 模型评分搜索</div>
                   </div>
                 </section>
               </div>
@@ -179,6 +211,7 @@
 
     <script src="assets/example-foregrounds/foreground-data.js"></script>
     <script src="assets/example-backgrounds/background-data.js"></script>
+    <script src="opa-placement.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

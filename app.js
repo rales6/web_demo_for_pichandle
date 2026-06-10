@@ -1,6 +1,7 @@
 const MODEL_CONFIG = {
   useRemoteModel: false,
-  endpoint: "http://localhost:8000/api/compose",
+  endpoint: "https://web-demo-backend-xq1n.onrender.com/api/compose"
+  useRemoteModel: true
   requestTimeoutMs: 30000,
   useOpaPlacement: true,
   opaPlacementEndpoint: "http://127.0.0.1:8000/api/predict",

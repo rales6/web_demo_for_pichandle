@@ -2,5 +2,5 @@ fastapi
 uvicorn[standard]
 python-multipart
 pillow
-numpy
-mindspore
+numpy==1.26.4
+mindspore==2.4.1

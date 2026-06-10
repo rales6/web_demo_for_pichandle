@@ -1,0 +1,16 @@
+best.ckpt 没有放在这个压缩包里，因为文件较大，建议用 Git LFS 上传。
+
+本地操作步骤：
+1. git clone https://github.com/rales6/web_demo_for_pichandle.git
+2. cd web_demo_for_pichandle
+3. git lfs install
+4. git lfs track "*.ckpt"
+5. 将 best.ckpt 复制到 backend/best.ckpt
+6. git add .gitattributes backend/best.ckpt
+7. git commit -m "Add model checkpoint with Git LFS"
+8. git push origin main
+
+Render 部署时：
+Root Directory 填 backend
+Build Command 填 pip install -r requirements.txt
+Start Command 填 python app.py --host 0.0.0.0 --train-code train_opa_score_resnet_ms.py --ckpt best.ckpt --arch resnet18 --device-target CPU

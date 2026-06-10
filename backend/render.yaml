@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: opa-backend-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py --host 0.0.0.0 --train-code train_opa_score_resnet_ms.py --ckpt best.ckpt --arch resnet18 --device-target CPU
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.18

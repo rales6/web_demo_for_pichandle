@@ -1,9 +1,21 @@
 const MODEL_CONFIG = {
-  useRemoteModel: true,
+  // Render 后端地址配置
+  // 当前后端主要提供 /api/predict 接口，用于 OPA 位置评分。
+  // /api/compose 当前后端未实际提供，因此 useRemoteModel 保持 false，避免请求 404。
+  useRemoteModel: false,
   endpoint: "https://web-demo-backend-xq1n.onrender.com/api/compose",
-  requestTimeoutMs: 30000,
+  requestTimeoutMs: 60000,
+
+  // OPA Placement 后端评分接口
+  useOpaPlacement: true,
+  opaPlacementEndpoint: "https://web-demo-backend-xq1n.onrender.com/api/predict",
+  opaPlacementTimeoutMs: 300000,
+
+  // 浏览器端前景抠图模型配置
   useBrowserCutoutModel: true,
   cutoutLibraryUrl: "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm",
+
+  // 抠图边缘和透明度修复参数
   repairSmallCutoutHoles: true,
   maxRepairHoleRatio: 0.035,
   minSolidAlpha: 96,
